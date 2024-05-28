@@ -33,7 +33,12 @@ void* thread_func(void* arg) {
             sem_post(&FLAG);
             pthread_exit(nullptr);
         }
-        file << "Thread " << tid << " The Quote" << std::endl;
+
+		if (id % 2 == 0) {
+            file << "Thread ID " << tid << ": \"Controlling complexity is the essence of computer programming.\" --Brian Kernigan" << std::endl;
+        } else {
+            file << "Thread ID " << tid << ": \"Computer science is no more about computers than astronomy is about telescopes.\" --Edsger Dijkstra" << std::endl;
+		}
 
         // Print to stdout
         std::cout << "Thread " << tid << " is running" << std::endl;
