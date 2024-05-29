@@ -4,8 +4,8 @@
 # Programming Assignment 1 / Chat Bot 
 ## Team Members 
 # Name: Jeremiah Dobes
-# RedID: 
-# Edoras:
+# RedID: 826788151
+# Edoras: cssc4429
 
 # Name: Anthony Ngo
 # RedID: 825252396
