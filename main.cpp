@@ -1,3 +1,20 @@
+/* 
+main.cpp
+
+CS 480 Operating Systems
+Programming Assignment 1 / Chat Bot 
+Team Members 
+Name: Jeremiah Dobes
+RedID: 
+Edoras:
+
+Name: Anthony Ngo
+RedID: 825252396
+Edoras: cssc4410
+*/
+
+
+
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
