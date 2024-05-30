@@ -21,7 +21,7 @@ CC = g++
 CFLAGS = -std=c++11 -pthread
 
 # Source files and object files
-SRCS = bots.cpp
+SRCS = main.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 # Target executable

@@ -18,6 +18,7 @@
 - `README.md`: This file, providing instructions and information about the program.
 
 
-## Usage
-
+## Compile Instructions 
+- Make sure that a GCC or G++ compiler is installed on your system
+- Open up an terminal window and navigate your way to the "a1" directory containing the source files.
 - 
