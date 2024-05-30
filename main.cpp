@@ -92,6 +92,7 @@ int main() {
     for (int i = 0; i < THREAD_COUNT; i++) {
         int *arg = new int(i); // Allocate memory for thread argument
         // Handle thread creation failure
+        std::cout << "Creating thread, in main(): " << *arg << std::endl;
         if (pthread_create(&threads[i], nullptr, thread_func, arg) != 0) {
             perror("Failed to create thread");
             exit(EXIT_FAILURE);
