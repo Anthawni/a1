@@ -42,7 +42,7 @@ During our development Jeremiah and I did not run into any particular issues oth
 We didn't stray away from the instructions to add anything fancy. With the example outputs we wanted to ensure we had something close to picture perfect. 
 
 ## Lessons Learned
-Jeriamiah and I learned the following:
+Jeremiah and I learned the following:
 
 - Setting up WSL 
 - Seperating code to varying threads

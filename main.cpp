@@ -29,6 +29,7 @@ Edoras: cssc4410
 sem_t FLAG;
 
 void* thread_func(void* arg) {
+    // Get the ID of the current thread in order to perform operations
     pthread_t tid = pthread_self();
     int id = *static_cast<int*>(arg);
 
@@ -43,7 +44,7 @@ void* thread_func(void* arg) {
         // Wait for the semaphore
         sem_wait(&FLAG);
 
-        // Write to the file
+        // Open the file and handle errors
         std::ofstream file("QUOTE.txt", std::ios_base::app);
         if (!file.is_open()) {
             perror("Failed to open file");
@@ -51,14 +52,15 @@ void* thread_func(void* arg) {
             pthread_exit(nullptr);
         }
 
+        // Print to the file
 		if (id % 2 == 0) {
-            file << "Thread ID " << tid << ": \"Controlling complexity is the essence of computer programming.\" --Brian Kernigan" << std::endl;
+            file << "Thread ID " << id << ": \"Controlling complexity is the essence of computer programming.\" --Brian Kernigan" << std::endl;
         } else {
-            file << "Thread ID " << tid << ": \"Computer science is no more about computers than astronomy is about telescopes.\" --Edsger Dijkstra" << std::endl;
+            file << "Thread ID " << id << ": \"Computer science is no more about computers than astronomy is about telescopes.\" --Edsger Dijkstra" << std::endl;
 		}
 
         // Print to stdout
-        std::cout << "Thread " << tid << " is running" << std::endl;
+        std::cout << "Thread " << id << " is running" << std::endl;
 
         // Release the semaphore
         sem_post(&FLAG);
@@ -89,6 +91,7 @@ int main() {
     std::vector<pthread_t> threads(THREAD_COUNT);
     for (int i = 0; i < THREAD_COUNT; i++) {
         int *arg = new int(i); // Allocate memory for thread argument
+        // Handle thread creation failure
         if (pthread_create(&threads[i], nullptr, thread_func, arg) != 0) {
             perror("Failed to create thread");
             exit(EXIT_FAILURE);
@@ -106,7 +109,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Exit gracefully
+    // Exit the code
     std::cout << "All threads have completed. Exiting..." << std::endl;
     return 0;
 }
