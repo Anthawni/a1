@@ -10,6 +10,7 @@
 # Name: Anthony Ngo
 # RedID: 825252396
 # Edoras: cssc4410
+#	* Account to be used for testing in edoras
 
 ## File Structure
 
