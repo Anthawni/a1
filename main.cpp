@@ -1,116 +1,142 @@
-/* 
-main.cpp
-
-CS 480 Operating Systems
-Programming Assignment 1 / Chat Bot 
-Team Members 
-Name: Jeremiah Dobes
-RedID: 
-Edoras:
-
-Name: Anthony Ngo
-RedID: 825252396
-Edoras: cssc4410
-*/
-
-
-
 #include <iostream>
-#include <fstream>
-#include <unistd.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <memory>
 #include <vector>
+#include <string>
+#include <sstream>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
-#define THREAD_COUNT 7
-#define REPEAT_COUNT 8
+void run_executable(const std::string& command, const std::string& argument) {
+    pid_t pid = fork();
 
-sem_t FLAG;
-
-void* thread_func(void* arg) {
-    // Get the ID of the current thread in order to perform operations
-    pthread_t tid = pthread_self();
-    int id = *static_cast<int*>(arg);
-
-    for (int i = 0; i < REPEAT_COUNT; i++) {
-        // Even threads sleep for 2 seconds, odd threads sleep for 3 seconds
-        if (id % 2 == 0) {
-            sleep(2);
-        } else {
-            sleep(3);
-        }
-
-        // Wait for the semaphore
-        sem_wait(&FLAG);
-
-        // Open the file and handle errors
-        std::ofstream file("QUOTE.txt", std::ios_base::app);
-        if (!file.is_open()) {
-            perror("Failed to open file");
-            sem_post(&FLAG);
-            pthread_exit(nullptr);
-        }
-
-        // Print to the file
-		if (id % 2 == 0) {
-            file << "Thread ID " << id << ": \"Controlling complexity is the essence of computer programming.\" --Brian Kernigan" << std::endl;
-        } else {
-            file << "Thread ID " << id << ": \"Computer science is no more about computers than astronomy is about telescopes.\" --Edsger Dijkstra" << std::endl;
-		}
-
-        // Print to stdout
-        std::cout << "Thread " << id << " is running" << std::endl;
-
-        // Release the semaphore
-        sem_post(&FLAG);
+    if (pid < 0) {
+        perror("fork");
+        return;
     }
 
-    pthread_exit(nullptr);
+    if (pid == 0) { // Child process
+        if (argument.empty()) {
+            execl(command.c_str(), command.c_str(), NULL);
+        } else {
+            execl(command.c_str(), command.c_str(), argument.c_str(), NULL);
+        }
+        perror("execl"); // Only reached if execl fails
+        exit(EXIT_FAILURE);
+    } else { // Parent process
+        waitpid(pid, NULL, 0);
+    }
 }
 
-int main() {
-    // Create and initialize the file
-    std::ofstream file("QUOTE.txt");
-    if (!file.is_open()) {
-        perror("Failed to create file");
-        exit(EXIT_FAILURE);
-    }
-
-    // Write the process ID
-    file << "Process ID: " << getpid() << std::endl;
-    file.close();
-
-    // Initialize the semaphore
-    if (sem_init(&FLAG, 0, 1) != 0) {
-        perror("Failed to initialize semaphore");
-        exit(EXIT_FAILURE);
-    }
-
-    // Create threads
-    std::vector<pthread_t> threads(THREAD_COUNT);
-    for (int i = 0; i < THREAD_COUNT; i++) {
-        int *arg = new int(i); // Allocate memory for thread argument
-        // Handle thread creation failure
-        std::cout << "Creating thread, in main(): " << *arg << std::endl;
-        if (pthread_create(&threads[i], nullptr, thread_func, arg) != 0) {
-            perror("Failed to create thread");
+void handle_piped_commands(const std::vector<std::string>& commands) {
+    size_t num_commands = commands.size();
+    int pipefds[2 * (num_commands - 1)];
+    
+    for (size_t i = 0; i < num_commands - 1; ++i) {
+        if (pipe(pipefds + i*2) < 0) {
+            perror("pipe");
             exit(EXIT_FAILURE);
         }
     }
 
-    // Wait for all threads to complete
-    for (auto& thread : threads) {
-        pthread_join(thread, nullptr);
+    for (size_t i = 0; i < num_commands; ++i) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pid == 0) { // Child process
+            if (i != 0) {
+                if (dup2(pipefds[(i-1)*2], STDIN_FILENO) < 0) {
+                    perror("dup2");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            if (i != num_commands - 1) {
+                if (dup2(pipefds[i*2 + 1], STDOUT_FILENO) < 0) {
+                    perror("dup2");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            for (size_t j = 0; j < 2 * (num_commands - 1); ++j) {
+                close(pipefds[j]);
+            }
+
+            std::istringstream iss(commands[i]);
+            std::string executable;
+            std::vector<std::string> args;
+            std::string arg;
+
+            iss >> executable;
+            while (iss >> arg) {
+                args.push_back(arg);
+            }
+
+            std::vector<const char*> c_args;
+            c_args.push_back(executable.c_str());
+            for (const auto& a : args) {
+                c_args.push_back(a.c_str());
+            }
+            c_args.push_back(NULL);
+
+            execvp(executable.c_str(), const_cast<char* const*>(c_args.data()));
+            perror("execvp"); // Only reached if execvp fails
+            exit(EXIT_FAILURE);
+        }
     }
 
-    // Destroy the semaphore
-    if (sem_destroy(&FLAG) != 0) {
-        perror("Failed to destroy semaphore");
-        exit(EXIT_FAILURE);
+    for (size_t i = 0; i < 2 * (num_commands - 1); ++i) {
+        close(pipefds[i]);
     }
 
-    // Exit the code
-    std::cout << "All threads have completed. Exiting..." << std::endl;
+    for (size_t i = 0; i < num_commands; ++i) {
+        wait(NULL);
+    }
+}
+
+int main() {
+    std::string username = "cssc0000"; // Replace this with the actual class account username
+    std::string input;
+
+    while (true) {
+        std::cout << username << "% ";
+        std::getline(std::cin, input);
+
+        if (input.empty()) {
+            continue;
+        }
+
+        if (input == "exit") {
+            break;
+        }
+
+        std::istringstream iss(input);
+        std::vector<std::string> commands;
+        std::string token;
+
+        while (std::getline(iss, token, '|')) {
+            commands.push_back(token);
+        }
+
+        if (commands.size() > 1) {
+            handle_piped_commands(commands);
+        } else {
+            std::istringstream single_iss(input);
+            std::string command, argument;
+            single_iss >> command;
+            single_iss >> argument;
+
+            if (access(command.c_str(), X_OK) == 0) {
+                run_executable(command, argument);
+            } else {
+                std::cerr << "Error: " << command << " is not a valid executable file." << std::endl;
+            }
+        }
+    }
+
     return 0;
 }
