@@ -99,7 +99,7 @@ void handle_piped_commands(const std::vector<std::string>& commands) {
 }
 
 int main() {
-    std::string username = "cssc0000"; // Replace this with the actual class account username
+    std::string username = "cssc4410";
     std::string input;
 
     while (true) {
