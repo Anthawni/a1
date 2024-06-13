@@ -45,7 +45,7 @@ We didn't stray away from the instructions to add anything fancy. With the examp
 ## Lessons Learned
 Jeremiah and I learned the following:
 
-- How to implement out own shell  
+- How to implement our own shell  
 - Command line input handling
 - Improved error handling skills
 - Creating a Makefile with a structured layout
