@@ -1,3 +1,20 @@
+/* 
+main.cpp
+
+CS 480 Operating Systems
+Programming Assignment 2 / Experimental Shell "XSH"
+
+Team Members 
+Name: Jeremiah Dobes
+RedID: 82678815
+Edoras: cssc4429
+
+Name: Anthony Ngo
+RedID: 825252396
+Edoras: cssc4410
+*/
+
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,7 +33,7 @@ void execute_with_pipes(const std::vector<std::vector<std::string>>& commands);
 int main() {
     std::string input;
 
-    // loop to read usser input 
+    // loop to read user input 
     while (true) {
         // edoras user shell prompt
         std::cout << "cssc4410% ";
