@@ -1,142 +1,216 @@
 #include <iostream>
 #include <vector>
-#include <string>
-#include <sstream>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <fcntl.h>
+#include <cstdlib>
+#include <ctime>
 
-void run_executable(const std::string& command, const std::string& argument) {
-    pid_t pid = fork();
+class MemoryBlock {
+public:
+    int size;
+    int process_id;
+    MemoryBlock* next;
 
-    if (pid < 0) {
-        perror("fork");
-        return;
-    }
+    MemoryBlock(int s, int pid = -1) : size(s), process_id(pid), next(nullptr) {}
+};
 
-    if (pid == 0) { // Child process
-        if (argument.empty()) {
-            execl(command.c_str(), command.c_str(), NULL);
-        } else {
-            execl(command.c_str(), command.c_str(), argument.c_str(), NULL);
+class MemoryManager {
+private:
+    MemoryBlock* head;
+    std::string technique;
+
+    void merge_free_blocks() {
+        MemoryBlock* current = head;
+        while (current && current->next) {
+            if (current->process_id == -1 && current->next->process_id == -1) {
+                current->size += current->next->size;
+                MemoryBlock* to_delete = current->next;
+                current->next = current->next->next;
+                delete to_delete;
+            } else {
+                current = current->next;
+            }
         }
-        perror("execl"); // Only reached if execl fails
-        exit(EXIT_FAILURE);
-    } else { // Parent process
-        waitpid(pid, NULL, 0);
     }
+
+public:
+    MemoryManager(const std::string& tech) : technique(tech) {
+        head = new MemoryBlock(128);  // 256 KB divided into 2 KB units (128 units)
+    }
+
+    ~MemoryManager() {
+        while (head) {
+            MemoryBlock* temp = head;
+            head = head->next;
+            delete temp;
+        }
+    }
+
+    int allocate_mem(int process_id, int num_units) {
+        if (technique == "first_fit")
+            return first_fit_allocate(process_id, num_units);
+        else if (technique == "best_fit")
+            return best_fit_allocate(process_id, num_units);
+        return -1;
+    }
+
+    int first_fit_allocate(int process_id, int num_units) {
+        MemoryBlock* current = head;
+        int nodes_traversed = 0;
+
+        while (current) {
+            nodes_traversed++;
+            if (current->process_id == -1 && current->size >= num_units) {
+                if (current->size > num_units) {
+                    MemoryBlock* new_block = new MemoryBlock(current->size - num_units);
+                    new_block->next = current->next;
+                    current->size = num_units;
+                    current->next = new_block;
+                }
+                current->process_id = process_id;
+                return nodes_traversed;
+            }
+            current = current->next;
+        }
+
+        return -1;
+    }
+
+    int best_fit_allocate(int process_id, int num_units) {
+        MemoryBlock* current = head;
+        MemoryBlock* best_block = nullptr;
+        int best_block_size = INT_MAX;
+        int nodes_traversed = 0;
+
+        while (current) {
+            nodes_traversed++;
+            if (current->process_id == -1 && current->size >= num_units && current->size < best_block_size) {
+                best_block = current;
+                best_block_size = current->size;
+            }
+            current = current->next;
+        }
+
+        if (best_block) {
+            if (best_block->size > num_units) {
+                MemoryBlock* new_block = new MemoryBlock(best_block->size - num_units);
+                new_block->next = best_block->next;
+                best_block->size = num_units;
+                best_block->next = new_block;
+            }
+            best_block->process_id = process_id;
+            return nodes_traversed;
+        }
+
+        return -1;
+    }
+
+    int deallocate_mem(int process_id) {
+        MemoryBlock* current = head;
+
+        while (current) {
+            if (current->process_id == process_id) {
+                current->process_id = -1;
+                merge_free_blocks();
+                return 1;
+            }
+            current = current->next;
+        }
+
+        return -1;
+    }
+
+    int fragment_count() {
+        MemoryBlock* current = head;
+        int fragments = 0;
+
+        while (current) {
+            if (current->process_id == -1 && current->size <= 2) {
+                fragments++;
+            }
+            current = current->next;
+        }
+
+        return fragments;
+    }
+};
+
+std::vector<std::pair<std::string, std::pair<int, int>>> generate_requests(int num_requests) {
+    std::vector<std::pair<std::string, std::pair<int, int>>> requests;
+    srand(time(0));
+
+    for (int i = 0; i < num_requests; ++i) {
+        int process_id = rand() % 10000 + 1;
+        if (rand() % 2 == 0) {
+            int num_units = rand() % 8 + 3;  // 3 to 10 units
+            requests.push_back({"alloc", {process_id, num_units}});
+        } else {
+            requests.push_back({"dealloc", {process_id, 0}});
+        }
+    }
+
+    return requests;
 }
 
-void handle_piped_commands(const std::vector<std::string>& commands) {
-    size_t num_commands = commands.size();
-    int pipefds[2 * (num_commands - 1)];
-    
-    for (size_t i = 0; i < num_commands - 1; ++i) {
-        if (pipe(pipefds + i*2) < 0) {
-            perror("pipe");
-            exit(EXIT_FAILURE);
+class Statistics {
+private:
+    int external_fragments;
+    int total_allocations;
+    int total_nodes_traversed;
+    int failed_allocations;
+
+public:
+    Statistics() : external_fragments(0), total_allocations(0), total_nodes_traversed(0), failed_allocations(0) {}
+
+    void update(int fragment_count, int nodes_traversed, bool allocation_successful) {
+        external_fragments += fragment_count;
+        total_allocations++;
+        total_nodes_traversed += nodes_traversed;
+        if (!allocation_successful) {
+            failed_allocations++;
         }
     }
 
-    for (size_t i = 0; i < num_commands; ++i) {
-        pid_t pid = fork();
+    void report() {
+        double avg_fragments = static_cast<double>(external_fragments) / total_allocations;
+        double avg_nodes_traversed = static_cast<double>(total_nodes_traversed) / total_allocations;
+        double allocation_failure_percentage = (static_cast<double>(failed_allocations) / total_allocations) * 100;
+        std::cout << "Average number of external fragments: " << avg_fragments << "\n";
+        std::cout << "Average allocation time (nodes traversed): " << avg_nodes_traversed << "\n";
+        std::cout << "Allocation failure percentage: " << allocation_failure_percentage << "%\n";
+    }
+};
 
-        if (pid < 0) {
-            perror("fork");
-            exit(EXIT_FAILURE);
-        }
+void run_simulation(int num_requests) {
+    MemoryManager first_fit_manager("first_fit");
+    MemoryManager best_fit_manager("best_fit");
+    Statistics stats_first_fit;
+    Statistics stats_best_fit;
 
-        if (pid == 0) { // Child process
-            if (i != 0) {
-                if (dup2(pipefds[(i-1)*2], STDIN_FILENO) < 0) {
-                    perror("dup2");
-                    exit(EXIT_FAILURE);
-                }
-            }
+    std::vector<std::pair<std::string, std::pair<int, int>>> requests = generate_requests(num_requests);
 
-            if (i != num_commands - 1) {
-                if (dup2(pipefds[i*2 + 1], STDOUT_FILENO) < 0) {
-                    perror("dup2");
-                    exit(EXIT_FAILURE);
-                }
-            }
+    for (const auto& request : requests) {
+        if (request.first == "alloc") {
+            int process_id = request.second.first;
+            int num_units = request.second.second;
 
-            for (size_t j = 0; j < 2 * (num_commands - 1); ++j) {
-                close(pipefds[j]);
-            }
+            int nodes_traversed = first_fit_manager.allocate_mem(process_id, num_units);
+            stats_first_fit.update(first_fit_manager.fragment_count(), nodes_traversed, nodes_traversed != -1);
 
-            std::istringstream iss(commands[i]);
-            std::string executable;
-            std::vector<std::string> args;
-            std::string arg;
-
-            iss >> executable;
-            while (iss >> arg) {
-                args.push_back(arg);
-            }
-
-            std::vector<const char*> c_args;
-            c_args.push_back(executable.c_str());
-            for (const auto& a : args) {
-                c_args.push_back(a.c_str());
-            }
-            c_args.push_back(NULL);
-
-            execvp(executable.c_str(), const_cast<char* const*>(c_args.data()));
-            perror("execvp"); // Only reached if execvp fails
-            exit(EXIT_FAILURE);
+            nodes_traversed = best_fit_manager.allocate_mem(process_id, num_units);
+            stats_best_fit.update(best_fit_manager.fragment_count(), nodes_traversed, nodes_traversed != -1);
+        } else if (request.first == "dealloc") {
+            int process_id = request.second.first;
+            first_fit_manager.deallocate_mem(process_id);
+            best_fit_manager.deallocate_mem(process_id);
         }
     }
 
-    for (size_t i = 0; i < 2 * (num_commands - 1); ++i) {
-        close(pipefds[i]);
-    }
-
-    for (size_t i = 0; i < num_commands; ++i) {
-        wait(NULL);
-    }
+    std::cout << "First Fit Statistics:\n";
+    stats_first_fit.report();
+    std::cout << "\nBest Fit Statistics:\n";
+    stats_best_fit.report();
 }
 
 int main() {
-    std::string username = "cssc4410";
-    std::string input;
-
-    while (true) {
-        std::cout << username << "% ";
-        std::getline(std::cin, input);
-
-        if (input.empty()) {
-            continue;
-        }
-
-        if (input == "exit") {
-            break;
-        }
-
-        std::istringstream iss(input);
-        std::vector<std::string> commands;
-        std::string token;
-
-        while (std::getline(iss, token, '|')) {
-            commands.push_back(token);
-        }
-
-        if (commands.size() > 1) {
-            handle_piped_commands(commands);
-        } else {
-            std::istringstream single_iss(input);
-            std::string command, argument;
-            single_iss >> command;
-            single_iss >> argument;
-
-            if (access(command.c_str(), X_OK) == 0) {
-                run_executable(command, argument);
-            } else {
-                std::cerr << "Error: " << command << " is not a valid executable file." << std::endl;
-            }
-        }
-    }
-
+    run_simulation(10000);
     return 0;
 }
