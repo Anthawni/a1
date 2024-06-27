@@ -1,7 +1,7 @@
 # README File
 
 # CS 480 Operating Systems
-# Programming Assignment 1 / Chat Bot 
+# Programming Assignment 3 
 ## Team Members 
 # Name: Jeremiah Dobes
 # RedID: 826788151
@@ -21,23 +21,19 @@
 
 ## Compile Instructions 
 - Make sure that a GCC or G++ compiler is installed on your system
-- Open up an terminal window and navigate your way to the "a1" directory containing the source files.
+- Open up an terminal window and navigate your way to the "a3" directory containing the source files.
 - Run the command "make" to compile the source code ,main.cpp'.
 
 ## Operating Instructions 
-- Following compilation run the executable that is produced with the following command "./bots".
-- Check out the outputs using 'cat' <filename> Example "cat QUOTE.txt"
+- Following compilation run the executable that is produced with the following command "./sim".
+- Check out the outputs for End of First Fit Allocation and End of Best Fit Allocation
 
 ## File Descriptions
 main.cpp - is the core source file of the file that contains the implementation of the following functionalities. 
-    - creates a file named Quote.txt in the current working directory and displays the process ID of each running proccess
-    - initializes a semaphore named FLAG which is utilized to manage the access to the file Quote.txt
-    - Creates seven threads using the designated thread library (POSIX)
-    - Ensures that the even and odd numbered threads sleep for 2 and 3 seconds
-    - Cleans up the semaphore Flag by using sem_destroy and exiting gracefully.
+Makefile - is a script that automates the compilation process of the project, ensuring dependencies are managed and the executable "sim" is generated
 
 ## Known Issues 
-During our development Jeremiah and I did not run into any particular issues other than simple printing layouts. 
+During our development Jeremiah and I ran into some issues such as the first and best fit being printed identical and the average nodes traversed being negative. 
 
 ## Design Decisions
 We didn't stray away from the instructions to add anything fancy. With the example outputs we wanted to ensure we had something close to picture perfect. 
@@ -45,8 +41,8 @@ We didn't stray away from the instructions to add anything fancy. With the examp
 ## Lessons Learned
 Jeremiah and I learned the following:
 
-- Setting up WSL 
-- Seperating code to varying threads
-- Creating a structured README file
-- Creating a Makefile with a structured layout
+- Implementing memory allocation and deallocation using first fit and best fit techniques
+- Handling allocation and deallocation
+- Managing and optimizing memory usage
+- Debugging and refining code to ensure correct implementation
 
